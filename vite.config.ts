@@ -4,6 +4,11 @@ import vue from '@vitejs/plugin-vue'
 export default defineConfig({
   publicDir: 'src/public',
   plugins: [vue()],
+  server: {
+    proxy: {
+      '/api': 'http://localhost:3001',
+    },
+  },
   test: {
     environment: 'jsdom',
     globals: true,

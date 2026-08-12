@@ -9,6 +9,7 @@ import LayoutGrid from '../components/LayoutGrid.vue'
 import A4Preview from '../components/A4Preview.vue'
 import LayoutSettings from '../components/LayoutSettings.vue'
 
+const emit = defineEmits<{ openBeanCard: [] }>()
 const store = useEditorStore()
 const { generatedResult, generationStatus, generationError, canDownload } = storeToRefs(store)
 const previewDialogVisible = ref(false)
@@ -18,6 +19,10 @@ const pendingAddSlotIndex = ref<number | null>(null)
 function triggerAdd(slotIndex?: number): void {
   pendingAddSlotIndex.value = slotIndex ?? null
   hiddenInput.value?.click()
+}
+
+async function duplicateToSlot(slotIndex: number): Promise<void> {
+  await store.duplicateImage(slotIndex)
 }
 
 async function addFromHiddenInput(event: Event): Promise<void> {
@@ -65,6 +70,7 @@ onBeforeUnmount(store.cleanup)
         </div>
       </div>
       <div class="header-actions">
+        <el-button @click="emit('openBeanCard')">咖啡豆卡生成</el-button>
         <ImageUploader
           compact
           :disabled="store.remainingCapacity === 0"
@@ -85,7 +91,12 @@ onBeforeUnmount(store.cleanup)
       <section class="editor-pane">
         <LayoutSettings />
         <ImageUploader v-if="store.imageCount === 0" />
-        <LayoutGrid v-else @add="triggerAdd" />
+        <LayoutGrid
+          v-else
+          @add="triggerAdd"
+          @duplicate="duplicateToSlot"
+          @drop-files="async (index, files) => { await store.addFiles(files, index) }"
+        />
         <input
           ref="hiddenInput"
           class="sr-only"

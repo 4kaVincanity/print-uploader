@@ -5,6 +5,7 @@ import { VueDraggable } from 'vue-draggable-plus'
 import { ArrowLeft, ArrowRight, RefreshLeft } from '@element-plus/icons-vue'
 import { useEditorStore } from '../store/editor'
 import { getSlotAspectRatio } from '../utils/layout'
+import { PRINT_SIZES } from '../config'
 import type { CropTransform } from '../store/editor.types'
 import ImageSlot from './ImageSlot.vue'
 
@@ -13,12 +14,13 @@ interface DragEventLike {
   newIndex?: number
 }
 
-const emit = defineEmits<{ add: [index: number] }>()
+const emit = defineEmits<{ add: [index: number]; duplicate: [index: number]; dropFiles: [index: number, files: File[]] }>()
 const store = useEditorStore()
 const { slots, selectedImage, selectedImageId } = storeToRefs(store)
 const gridStyle = computed(() => ({
   '--slot-ratio': String(getSlotAspectRatio(store.layoutSettings)),
   '--editor-gap': `${Math.min(store.imageGapMm, 20)}px`,
+  '--grid-columns': String(PRINT_SIZES[store.sizeId].columns),
 }))
 const zoom = computed({
   get: () => selectedImage.value?.crop.zoom ?? 1,
@@ -34,6 +36,13 @@ const announce = ref('')
 
 function updateCrop(imageId: string, crop: CropTransform): void {
   store.updateCrop(imageId, crop)
+}
+
+async function onDropFiles(index: number, files: File[]): Promise<void> {
+  const report = await store.addFiles(files, index)
+  if (report.added > 0) {
+    announce.value = `已添加 ${report.added} 张图片`
+  }
 }
 
 function moveSelected(direction: -1 | 1): void {
@@ -60,7 +69,7 @@ function onDragEnd(event: DragEventLike): void {
     <div class="section-heading">
       <div>
         <h2 id="layout-title">排版顺序</h2>
-        <p>{{ store.imageCount }}/9 张，拖动手柄调整顺序</p>
+        <p>{{ store.imageCount }}/{{ PRINT_SIZES[store.sizeId].columns * PRINT_SIZES[store.sizeId].rows }} 张，拖动手柄调整顺序</p>
       </div>
     </div>
 
@@ -82,9 +91,11 @@ function onDragEnd(event: DragEventLike): void {
         :index="index"
         :selected="slot.image?.id === selectedImageId"
         @add="emit('add', $event)"
+        @duplicate="emit('duplicate', $event)"
         @remove="store.removeImage"
         @select="store.selectImage"
         @update-crop="updateCrop"
+        @drop-files="onDropFiles"
       />
     </VueDraggable>
 
@@ -161,7 +172,7 @@ function onDragEnd(event: DragEventLike): void {
 
 .layout-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--grid-columns), minmax(0, 1fr));
   gap: var(--editor-gap);
 }
 

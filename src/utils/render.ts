@@ -1,10 +1,9 @@
 import type { ImageEntry, LayoutSettings, LayoutSlot } from '../store/editor.types'
 import { getCoverSourceRect } from './crop'
 import {
-  A4_HEIGHT_PX,
-  A4_WIDTH_PX,
   DEFAULT_LAYOUT_SETTINGS,
   createA4Layout,
+  getPrintSize,
 } from './layout'
 
 export function drawCroppedImage(
@@ -43,7 +42,8 @@ export function renderA4ToContext(
 ): void {
   context.save()
   context.fillStyle = '#ffffff'
-  context.fillRect(0, 0, A4_WIDTH_PX, A4_HEIGHT_PX)
+  const size = getPrintSize(settings)
+  context.fillRect(0, 0, size.widthPx, size.heightPx)
 
   createA4Layout(settings).forEach((rect, index) => {
     const image = slots[index]?.image
@@ -60,8 +60,9 @@ export async function renderA4Png(
   settings: LayoutSettings = DEFAULT_LAYOUT_SETTINGS,
 ): Promise<Blob> {
   const canvas = document.createElement('canvas')
-  canvas.width = A4_WIDTH_PX
-  canvas.height = A4_HEIGHT_PX
+  const size = getPrintSize(settings)
+  canvas.width = size.widthPx
+  canvas.height = size.heightPx
   const context = canvas.getContext('2d', { alpha: false })
 
   if (!context) {

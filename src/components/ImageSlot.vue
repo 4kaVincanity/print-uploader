@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { Delete, Rank } from '@element-plus/icons-vue'
+import { Delete, DocumentCopy, Rank } from '@element-plus/icons-vue'
 import type { CropTransform, LayoutSlot } from '../store/editor.types'
 import CropCanvas from './CropCanvas.vue'
 
-defineProps<{
+const props = defineProps<{
   item: LayoutSlot
   index: number
   selected: boolean
@@ -11,10 +11,17 @@ defineProps<{
 
 const emit = defineEmits<{
   remove: [index: number]
+  duplicate: [index: number]
   select: [imageId: string]
   updateCrop: [imageId: string, crop: CropTransform]
   add: [index: number]
+  dropFiles: [index: number, files: File[]]
 }>()
+
+function onDrop(event: DragEvent): void {
+  const files = Array.from(event.dataTransfer?.files ?? [])
+  if (files.length > 0) emit('dropFiles', props.index, files)
+}
 </script>
 
 <template>
@@ -24,6 +31,8 @@ const emit = defineEmits<{
       'grid-slot--empty': !item.image,
       'grid-slot--selected': selected,
     }"
+    @dragover.prevent
+    @drop.prevent="onDrop"
   >
     <template v-if="item.image">
       <CropCanvas
@@ -45,6 +54,16 @@ const emit = defineEmits<{
             @click.stop
           />
         </el-tooltip>
+        <el-tooltip content="复制图片" placement="top">
+          <el-button
+            class="icon-button"
+            circle
+            size="small"
+            :icon="DocumentCopy"
+            :aria-label="`复制第 ${index + 1} 张图片`"
+            @click.stop="emit('duplicate', index)"
+          />
+        </el-tooltip>
         <el-tooltip content="删除图片" placement="top">
           <el-button
             class="icon-button"
@@ -60,7 +79,14 @@ const emit = defineEmits<{
       </div>
     </template>
 
-    <button v-else class="empty-slot-button" type="button" @click="emit('add', index)">
+    <button
+      v-else
+      class="empty-slot-button"
+      type="button"
+      @click="emit('add', index)"
+      @dragover.prevent
+      @drop.prevent="onDrop"
+    >
       <span class="empty-slot-number">{{ index + 1 }}</span>
       <span>空位</span>
     </button>

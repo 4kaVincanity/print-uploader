@@ -21,6 +21,7 @@ export interface LayoutSlot {
 }
 
 export interface LayoutSettings {
+  sizeId?: keyof typeof import('../config').PRINT_SIZES
   marginMm: number
   gapMm: number
 }

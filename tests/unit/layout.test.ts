@@ -24,8 +24,16 @@ describe('A4 layout', () => {
     expect(last!.y + last!.height).toBe(A4_HEIGHT_PX)
   })
 
+  it('lays out the 99 x 52.5 mm size as three columns and four rows', () => {
+    const layout = createA4Layout({ sizeId: 'card995x52_5', marginMm: 0, gapMm: 0 })
+    expect(layout).toHaveLength(12)
+    expect(layout[0]).toEqual({ x: 0, y: 0, width: 1169, height: 620 })
+    expect(layout[2]!.x + layout[2]!.width).toBe(3508)
+    expect(layout[11]!.y + layout[11]!.height).toBe(2480)
+  })
+
   it('applies custom margin and gap while assigning rounding remainder to final tracks', () => {
-    const layout = createA4Layout({ marginMm: 10, gapMm: 5 })
+    const layout = createA4Layout({ sizeId: 'a4', marginMm: 10, gapMm: 5 })
     expect(layout[0]).toEqual({ x: 118, y: 118, width: 708, height: 1051 })
     expect(layout[1]!.x - (layout[0]!.x + layout[0]!.width)).toBe(59)
     expect(layout[3]!.y - (layout[0]!.y + layout[0]!.height)).toBe(59)
@@ -34,7 +42,8 @@ describe('A4 layout', () => {
   })
 
   it('clamps settings to configured bounds', () => {
-    expect(normalizeLayoutSettings({ marginMm: 99, gapMm: -4 })).toEqual({
+    expect(normalizeLayoutSettings({ sizeId: 'a4', marginMm: 99, gapMm: -4 })).toEqual({
+      sizeId: 'a4',
       marginMm: 30,
       gapMm: 0,
     })

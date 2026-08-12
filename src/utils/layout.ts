@@ -1,6 +1,9 @@
 import type { Rect } from '../store/editor.types'
 import type { LayoutSettings } from '../store/editor.types'
-import { PRINT_CONFIG } from '../config'
+import { PRINT_CONFIG, PRINT_SIZES } from '../config'
+
+type PrintSizeId = keyof typeof PRINT_SIZES
+type NormalizedLayoutSettings = LayoutSettings & { sizeId: PrintSizeId }
 
 export const A4_WIDTH_PX = PRINT_CONFIG.widthPx
 export const A4_HEIGHT_PX = PRINT_CONFIG.heightPx
@@ -9,6 +12,7 @@ export const GRID_COLUMNS = PRINT_CONFIG.columns
 export const GRID_ROWS = PRINT_CONFIG.rows
 
 export const DEFAULT_LAYOUT_SETTINGS: LayoutSettings = {
+  sizeId: 'a4',
   marginMm: PRINT_CONFIG.marginMm.default,
   gapMm: PRINT_CONFIG.gapMm.default,
 }
@@ -29,8 +33,11 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
 }
 
-export function normalizeLayoutSettings(settings: LayoutSettings): LayoutSettings {
+export function normalizeLayoutSettings(settings: LayoutSettings): NormalizedLayoutSettings {
+  const sizeId = settings.sizeId ?? 'a4'
+  const normalizedSizeId: PrintSizeId = sizeId in PRINT_SIZES ? sizeId : 'a4'
   return {
+    sizeId: normalizedSizeId,
     marginMm: clamp(
       Number.isFinite(settings.marginMm) ? settings.marginMm : PRINT_CONFIG.marginMm.default,
       PRINT_CONFIG.marginMm.min,
@@ -57,22 +64,23 @@ export function createA4Layout(
   settings: LayoutSettings = DEFAULT_LAYOUT_SETTINGS,
 ): Rect[] {
   const normalized = normalizeLayoutSettings(settings)
+  const size = PRINT_SIZES[normalized.sizeId]
   const pageMarginPx = mmToPx(normalized.marginMm)
   const gridGapPx = mmToPx(normalized.gapMm)
   const contentWidth =
-    A4_WIDTH_PX - pageMarginPx * 2 - gridGapPx * (GRID_COLUMNS - 1)
+    size.widthPx - pageMarginPx * 2 - gridGapPx * (size.columns - 1)
   const contentHeight =
-    A4_HEIGHT_PX - pageMarginPx * 2 - gridGapPx * (GRID_ROWS - 1)
-  const columnWidths = distributeTrackSizes(contentWidth, GRID_COLUMNS)
-  const rowHeights = distributeTrackSizes(contentHeight, GRID_ROWS)
+    size.heightPx - pageMarginPx * 2 - gridGapPx * (size.rows - 1)
+  const columnWidths = distributeTrackSizes(contentWidth, size.columns)
+  const rowHeights = distributeTrackSizes(contentHeight, size.rows)
   const slots: Rect[] = []
 
   let y = pageMarginPx
-  for (let row = 0; row < GRID_ROWS; row += 1) {
+  for (let row = 0; row < size.rows; row += 1) {
     let x = pageMarginPx
     const height = rowHeights[row] ?? 0
 
-    for (let column = 0; column < GRID_COLUMNS; column += 1) {
+    for (let column = 0; column < size.columns; column += 1) {
       const width = columnWidths[column] ?? 0
       slots.push({ x, y, width, height })
       x += width + gridGapPx
@@ -97,7 +105,8 @@ export function createCropGuides(
   const gridTop = first.y
   const gridRight = last.x + last.width
   const gridBottom = last.y + last.height
-  const verticalGuides = [0, 1].map((column): LineSegment => {
+  const size = PRINT_SIZES[normalizeLayoutSettings(settings).sizeId]
+  const verticalGuides = Array.from({ length: size.columns - 1 }, (_, column): LineSegment => {
     const leftSlot = slots[column]!
     const rightSlot = slots[column + 1]!
     const x = (leftSlot.x + leftSlot.width + rightSlot.x) / 2
@@ -110,9 +119,9 @@ export function createCropGuides(
       y2: gridBottom,
     }
   })
-  const horizontalGuides = [0, 1].map((row): LineSegment => {
-    const topSlot = slots[row * GRID_COLUMNS]!
-    const bottomSlot = slots[(row + 1) * GRID_COLUMNS]!
+  const horizontalGuides = Array.from({ length: size.rows - 1 }, (_, row): LineSegment => {
+    const topSlot = slots[row * size.columns]!
+    const bottomSlot = slots[(row + 1) * size.columns]!
     const y = (topSlot.y + topSlot.height + bottomSlot.y) / 2
 
     return {
@@ -132,11 +141,16 @@ export function getSlotAspectRatio(settings: LayoutSettings): number {
   return (first?.width ?? 1) / (first?.height ?? 1)
 }
 
-export function rectToPercent(rect: Rect): Record<string, string> {
+export function getPrintSize(settings: LayoutSettings = DEFAULT_LAYOUT_SETTINGS) {
+  return PRINT_SIZES[normalizeLayoutSettings(settings).sizeId]
+}
+
+export function rectToPercent(rect: Rect, settings: LayoutSettings = DEFAULT_LAYOUT_SETTINGS): Record<string, string> {
+  const size = getPrintSize(settings)
   return {
-    left: `${(rect.x / A4_WIDTH_PX) * 100}%`,
-    top: `${(rect.y / A4_HEIGHT_PX) * 100}%`,
-    width: `${(rect.width / A4_WIDTH_PX) * 100}%`,
-    height: `${(rect.height / A4_HEIGHT_PX) * 100}%`,
+    left: `${(rect.x / size.widthPx) * 100}%`,
+    top: `${(rect.y / size.heightPx) * 100}%`,
+    width: `${(rect.width / size.widthPx) * 100}%`,
+    height: `${(rect.height / size.heightPx) * 100}%`,
   }
 }

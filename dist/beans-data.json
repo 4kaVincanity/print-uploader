@@ -1,0 +1,32 @@
+[
+  {
+    "id": "cfbfb4bf-4c62-4bbf-8a48-3b2d0ca28c78",
+    "name": "赤道玫瑰",
+    "variety": "",
+    "altitude": "",
+    "process": "水洗·日曬",
+    "roast": "中焙",
+    "flavor": "柑橘 / 水果糖 / 蜂蜜",
+    "shopName": "隅木焙煎所"
+  },
+  {
+    "id": "729dd000-ba3f-4d96-992c-2af931f3b929",
+    "name": "巴拿馬 桑托斯",
+    "variety": "帕卡馬拉",
+    "altitude": "1400 米",
+    "process": "日曬",
+    "roast": "淺焙",
+    "flavor": "百合 / 菠蘿 / 枸杞 / 蜂蜜",
+    "shopName": "隅木焙煎所"
+  },
+  {
+    "id": "329e80f9-5b36-4210-b26b-07783fea6df7",
+    "name": "盧旺達 烏邦圖",
+    "variety": "紅波旁",
+    "altitude": "1800 米",
+    "process": "DWF厭氧水洗",
+    "roast": "淺焙",
+    "flavor": "柚子 / 葡萄 / 核果",
+    "shopName": "隅木焙煎所"
+  }
+]

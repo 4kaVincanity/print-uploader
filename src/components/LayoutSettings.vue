@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Setting } from '@element-plus/icons-vue'
-import { PRINT_CONFIG } from '../config'
+import { PRINT_CONFIG, PRINT_SIZES } from '../config'
 import { useEditorStore } from '../store/editor'
 
 const store = useEditorStore()
@@ -12,6 +12,10 @@ const pageMargin = computed({
 const imageGap = computed({
   get: () => store.imageGapMm,
   set: (value: number | undefined) => store.setImageGap(value),
+})
+const sizeId = computed({
+  get: () => store.sizeId,
+  set: (value: keyof typeof PRINT_SIZES) => store.updateLayoutSettings({ sizeId: value }),
 })
 </script>
 
@@ -25,6 +29,12 @@ const imageGap = computed({
       </div>
     </div>
     <div class="settings-controls">
+      <label class="size-control">
+        <span>纸张尺寸</span>
+        <el-select v-model="sizeId" aria-label="纸张尺寸">
+          <el-option v-for="(size, id) in PRINT_SIZES" :key="id" :label="size.label" :value="id" />
+        </el-select>
+      </label>
       <label>
         <span>页面边距</span>
         <el-input-number
@@ -100,6 +110,10 @@ const imageGap = computed({
   font-size: 13px;
 }
 
+.settings-controls .size-control {
+  grid-template-columns: auto 190px;
+}
+
 .settings-controls small {
   font-size: 12px;
 }
@@ -120,6 +134,10 @@ const imageGap = computed({
 
   .settings-controls label {
     grid-template-columns: 1fr 24px;
+  }
+
+  .settings-controls .size-control {
+    grid-template-columns: 1fr;
   }
 
   .settings-controls label > span {

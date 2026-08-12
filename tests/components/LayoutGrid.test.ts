@@ -79,4 +79,21 @@ describe('LayoutGrid', () => {
     await wrapper.findAll('.empty-slot-button')[1]!.trigger('click')
     expect(wrapper.emitted('add')).toEqual([[2]])
   })
+
+  it('emits duplicate and drop events from slots', async () => {
+    const store = useEditorStore()
+    store.slots[0]!.image = fakeImage('first')
+    const wrapper = mount(LayoutGrid, {
+      global: {
+        plugins: [ElementPlus],
+        stubs: {
+          CropCanvas: true,
+          VueDraggable: { template: '<div><slot /></div>' },
+        },
+      },
+    })
+
+    await wrapper.get('[aria-label="复制第 1 张图片"]').trigger('click')
+    expect(wrapper.emitted('duplicate')).toEqual([[0]])
+  })
 })

@@ -9,18 +9,17 @@ import type {
   LayoutSettings,
   LayoutSlot,
 } from './editor.types'
-import { IMAGE_IMPORT_CONFIG, PRINT_CONFIG } from '../config'
+import { PRINT_CONFIG, PRINT_SIZES } from '../config'
 import { normalizeCrop } from '../utils/crop'
 import { decodeImageFile, validateImageFile } from '../utils/image'
 import {
-  A4_HEIGHT_PX,
-  A4_WIDTH_PX,
+  getPrintSize,
   normalizeLayoutSettings,
 } from '../utils/layout'
 import { renderA4Png } from '../utils/render'
 
 function createSlots(): LayoutSlot[] {
-  return Array.from({ length: IMAGE_IMPORT_CONFIG.maxImages }, (_, index) => ({
+  return Array.from({ length: PRINT_CONFIG.columns * PRINT_CONFIG.rows }, (_, index) => ({
     id: `slot-${index + 1}`,
     image: null,
   }))
@@ -35,6 +34,7 @@ export const useEditorStore = defineStore('editor', () => {
   const selectedImageId = ref<string | null>(null)
   const pageMarginMm = ref<number>(PRINT_CONFIG.marginMm.default)
   const imageGapMm = ref<number>(PRINT_CONFIG.gapMm.default)
+  const sizeId = ref<keyof typeof PRINT_SIZES>('a4')
   const revision = ref(0)
   const generationStatus = ref<GenerationStatus>('idle')
   const generatedResult = ref<GeneratedResult | null>(null)
@@ -47,9 +47,10 @@ export const useEditorStore = defineStore('editor', () => {
   )
   const imageCount = computed(() => images.value.length)
   const remainingCapacity = computed(
-    () => IMAGE_IMPORT_CONFIG.maxImages - imageCount.value,
+    () => PRINT_SIZES[sizeId.value].columns * PRINT_SIZES[sizeId.value].rows - imageCount.value,
   )
   const layoutSettings = computed<LayoutSettings>(() => ({
+    sizeId: sizeId.value,
     marginMm: pageMarginMm.value,
     gapMm: imageGapMm.value,
   }))
@@ -125,6 +126,36 @@ export const useEditorStore = defineStore('editor', () => {
     return report
   }
 
+  async function duplicateImage(sourceSlotIndex: number, targetSlotIndex?: number): Promise<boolean> {
+    const sourceSlot = slots.value[sourceSlotIndex]
+    if (!sourceSlot?.image) return false
+
+    const targetSlot =
+      targetSlotIndex === undefined ? undefined : slots.value[targetSlotIndex]
+    const emptySlot =
+      targetSlot && !targetSlot.image
+        ? targetSlot
+        : slots.value.find((slot, index) => index !== sourceSlotIndex && !slot.image)
+    if (!emptySlot) return false
+
+    const sourceImage = sourceSlot.image
+    const duplicateFile = new File([sourceImage.file], sourceImage.file.name, {
+      type: sourceImage.file.type,
+      lastModified: sourceImage.file.lastModified,
+    })
+    const decoded = await decodeImageFile(duplicateFile)
+    const image: ImageEntry = {
+      ...decoded,
+      decoded: markRaw(decoded.decoded),
+      id: createId(),
+      crop: { ...sourceImage.crop },
+    }
+    emptySlot.image = image
+    selectedImageId.value ??= image.id
+    touch()
+    return true
+  }
+
   function removeImage(slotIndex: number): void {
     const slot = slots.value[slotIndex]
     if (!slot?.image) return
@@ -152,8 +183,10 @@ export const useEditorStore = defineStore('editor', () => {
     const normalized = normalizeLayoutSettings({
       marginMm: settings.marginMm ?? pageMarginMm.value,
       gapMm: settings.gapMm ?? imageGapMm.value,
+      sizeId: settings.sizeId ?? sizeId.value,
     })
     if (
+      normalized.sizeId === sizeId.value &&
       normalized.marginMm === pageMarginMm.value &&
       normalized.gapMm === imageGapMm.value
     ) {
@@ -161,6 +194,11 @@ export const useEditorStore = defineStore('editor', () => {
     }
     pageMarginMm.value = normalized.marginMm
     imageGapMm.value = normalized.gapMm
+    sizeId.value = normalized.sizeId
+    const targetCount = PRINT_SIZES[sizeId.value].columns * PRINT_SIZES[sizeId.value].rows
+    while (slots.value.length < targetCount) {
+      slots.value.push({ id: `slot-${slots.value.length + 1}`, image: null })
+    }
     touch()
   }
 
@@ -215,11 +253,12 @@ export const useEditorStore = defineStore('editor', () => {
 
     try {
       const blob = await renderA4Png(slots.value, layoutSettings.value)
+      const size = getPrintSize(layoutSettings.value)
       const result: GeneratedResult = {
         url: URL.createObjectURL(blob),
         revision: generationRevision,
-        width: A4_WIDTH_PX,
-        height: A4_HEIGHT_PX,
+        width: size.widthPx,
+        height: size.heightPx,
       }
       generatedResult.value = result
       generationStatus.value = 'ready'
@@ -267,10 +306,12 @@ export const useEditorStore = defineStore('editor', () => {
     imageCount,
     remainingCapacity,
     layoutSettings,
+    sizeId,
     selectedImage,
     isGeneratedCurrent,
     canDownload,
     addFiles,
+    duplicateImage,
     removeImage,
     selectImage,
     updateCrop,

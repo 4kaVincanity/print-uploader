@@ -87,6 +87,21 @@ describe('editor store', () => {
     expect(store.slots[1]!.image?.name).toBe('target.png')
   })
 
+  it('duplicates an occupied image into an empty slot', async () => {
+    const store = useEditorStore()
+    const original = fakeImage('original')
+    original.crop.zoom = 1.5
+    store.slots[0]!.image = original
+
+    const duplicated = await store.duplicateImage(0, 1)
+
+    expect(duplicated).toBe(true)
+    expect(store.slots[1]!.image).toBeDefined()
+    expect(store.slots[1]!.image?.name).toBe('original.png')
+    expect(store.slots[1]!.image?.id).not.toBe(original.id)
+    expect(store.slots[1]!.image?.crop).toEqual(original.crop)
+  })
+
   it('reorders occupied positions and clamps crop updates', () => {
     const store = useEditorStore()
     store.slots[0]!.image = fakeImage('first')
@@ -101,14 +116,22 @@ describe('editor store', () => {
 
   it('defaults to a full page and clamps layout settings', () => {
     const store = useEditorStore()
-    expect(store.layoutSettings).toEqual({ marginMm: 0, gapMm: 0 })
+    expect(store.layoutSettings).toEqual({ sizeId: 'a4', marginMm: 0, gapMm: 0 })
 
     store.setPageMargin(99)
     store.setImageGap(-5)
-    expect(store.layoutSettings).toEqual({ marginMm: 30, gapMm: 0 })
+    expect(store.layoutSettings).toEqual({ sizeId: 'a4', marginMm: 30, gapMm: 0 })
 
     store.setImageGap(8)
-    expect(store.layoutSettings).toEqual({ marginMm: 30, gapMm: 8 })
+    expect(store.layoutSettings).toEqual({ sizeId: 'a4', marginMm: 30, gapMm: 8 })
     expect(store.revision).toBe(2)
+  })
+
+  it('adds twelve slots when switching to the 99 x 52.5 mm layout', () => {
+    const store = useEditorStore()
+    expect(store.slots).toHaveLength(9)
+    store.updateLayoutSettings({ sizeId: 'card995x52_5' })
+    expect(store.slots).toHaveLength(12)
+    expect(store.layoutSettings.sizeId).toBe('card995x52_5')
   })
 })

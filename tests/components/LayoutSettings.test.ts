@@ -14,15 +14,15 @@ describe('LayoutSettings', () => {
       global: { plugins: [ElementPlus] },
     })
     const inputs = wrapper.findAll('input')
-    expect(inputs).toHaveLength(2)
-    expect(inputs[0]!.element.value).toBe('0')
+    expect(inputs).toHaveLength(3)
     expect(inputs[1]!.element.value).toBe('0')
+    expect(inputs[2]!.element.value).toBe('0')
 
-    await inputs[0]!.setValue('12')
-    await inputs[0]!.trigger('change')
-    await inputs[1]!.setValue('6')
+    await inputs[1]!.setValue('12')
     await inputs[1]!.trigger('change')
+    await inputs[2]!.setValue('6')
+    await inputs[2]!.trigger('change')
 
-    expect(store.layoutSettings).toEqual({ marginMm: 12, gapMm: 6 })
+    expect(store.layoutSettings).toEqual({ sizeId: 'a4', marginMm: 12, gapMm: 6 })
   })
 })
