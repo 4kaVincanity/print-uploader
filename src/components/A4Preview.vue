@@ -8,6 +8,8 @@ import {
   getPrintSize,
 } from '../utils/layout'
 import CropCanvas from './CropCanvas.vue'
+import DateStamp from './DateStamp.vue'
+import { isDateStampEnabled } from '../utils/dateStamp'
 
 withDefaults(defineProps<{ showEmptyGuides?: boolean }>(), { showEmptyGuides: true })
 
@@ -29,7 +31,12 @@ const pageStyle = computed(() => ({ aspectRatio: `${getPrintSize(store.layoutSet
       <CropCanvas
         v-if="slots[index]?.image"
         :image="slots[index]!.image!"
-        :label="`A4 预览第 ${index + 1} 格`"
+        :label="`页面预览第 ${index + 1} 格`"
+      />
+      <DateStamp
+        v-if="isDateStampEnabled(slots[index]?.image?.dateStamp ?? null)"
+        :date-stamp="slots[index]!.image!.dateStamp!"
+        :format="store.dateFormat"
       />
       <span v-else-if="showEmptyGuides">{{ index + 1 }}</span>
     </div>
@@ -40,7 +47,6 @@ const pageStyle = computed(() => ({ aspectRatio: `${getPrintSize(store.layoutSet
 .a4-page {
   position: relative;
   width: 100%;
-  aspect-ratio: 210 / 297;
   overflow: hidden;
   background: #fff;
   box-shadow: var(--shadow);
@@ -50,6 +56,7 @@ const pageStyle = computed(() => ({ aspectRatio: `${getPrintSize(store.layoutSet
   position: absolute;
   overflow: hidden;
   background: #fff;
+  container-type: inline-size;
 }
 
 .preview-slot--empty {

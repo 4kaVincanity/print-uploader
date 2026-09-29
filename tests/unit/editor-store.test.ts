@@ -16,6 +16,7 @@ vi.mock('../../src/utils/image', () => ({
 }))
 
 import { useEditorStore } from '../../src/store/editor'
+import { formatDateStamp, isDateStampEnabled } from '../../src/utils/dateStamp'
 
 function file(name: string, type = 'image/png'): File {
   return new File(['image'], name, { type })
@@ -31,6 +32,7 @@ function fakeImage(id: string): ImageEntry {
     height: 1000,
     decoded: document.createElement('img'),
     crop: { zoom: 1, offsetX: 0, offsetY: 0 },
+    dateStamp: null,
   }
 }
 
@@ -91,6 +93,10 @@ describe('editor store', () => {
     const store = useEditorStore()
     const original = fakeImage('original')
     original.crop.zoom = 1.5
+    original.dateStamp = {
+      value: '2026/09/01',
+      position: { x: 0.25, y: 0.75 },
+    }
     store.slots[0]!.image = original
 
     const duplicated = await store.duplicateImage(0, 1)
@@ -100,6 +106,69 @@ describe('editor store', () => {
     expect(store.slots[1]!.image?.name).toBe('original.png')
     expect(store.slots[1]!.image?.id).not.toBe(original.id)
     expect(store.slots[1]!.image?.crop).toEqual(original.crop)
+    expect(store.slots[1]!.image?.dateStamp).toEqual(original.dateStamp)
+    expect(store.slots[1]!.image?.dateStamp).not.toBe(original.dateStamp)
+    expect(store.slots[1]!.image?.dateStamp?.position).not.toBe(original.dateStamp.position)
+  })
+
+  it('adds an independent date with today as the default and updates its value and position', () => {
+    const store = useEditorStore()
+    const first = fakeImage('first')
+    const second = fakeImage('second')
+    store.slots[0]!.image = first
+    store.slots[1]!.image = second
+
+    store.setDateEnabled(first.id, true)
+    expect(first.dateStamp).toEqual({
+      value: formatDateStamp(),
+      position: { x: 0.5, y: 0.86 },
+    })
+    expect(second.dateStamp).toBeNull()
+
+    store.updateImageDate(first.id, {
+      value: '2026/09/01',
+      position: { x: -1, y: 2 },
+    })
+    expect(first.dateStamp).toEqual({
+      value: '2026/09/01',
+      position: { x: 0, y: 1 },
+    })
+
+    store.setDateEnabled(first.id, false)
+    expect(first.dateStamp).toEqual({
+      value: '2026/09/01',
+      position: { x: 0, y: 1 },
+      enabled: false,
+    })
+    store.setDateEnabled(first.id, true)
+    expect(isDateStampEnabled(first.dateStamp)).toBe(true)
+    expect(first.dateStamp?.value).toBe('2026/09/01')
+  })
+
+  it('applies the batch date switch and position to existing and future images without losing dates', async () => {
+    const store = useEditorStore()
+    const first = fakeImage('first')
+    const second = fakeImage('second')
+    first.dateStamp = { value: '2026/09/01', position: { x: 0.2, y: 0.7 } }
+    store.slots[0]!.image = first
+    store.slots[1]!.image = second
+
+    store.setAllDatePosition({ x: 0.3, y: 0.8 })
+    expect(first.dateStamp?.position).toEqual({ x: 0.3, y: 0.8 })
+    store.setAllDatesEnabled(true)
+    expect(second.dateStamp).toEqual({
+      value: formatDateStamp(),
+      position: { x: 0.3, y: 0.8 },
+    })
+    await store.addFiles([file('third.png')])
+    expect(store.images[2]?.dateStamp?.position).toEqual({ x: 0.3, y: 0.8 })
+
+    store.setAllDatesEnabled(false)
+    expect(store.images.every((image) => !isDateStampEnabled(image.dateStamp))).toBe(true)
+    expect(first.dateStamp?.value).toBe('2026/09/01')
+    store.setAllDatesEnabled(true)
+    expect(first.dateStamp?.value).toBe('2026/09/01')
+    expect(store.images.every((image) => isDateStampEnabled(image.dateStamp))).toBe(true)
   })
 
   it('reorders occupied positions and clamps crop updates', () => {
@@ -133,5 +202,18 @@ describe('editor store', () => {
     store.updateLayoutSettings({ sizeId: 'card995x52_5' })
     expect(store.slots).toHaveLength(12)
     expect(store.layoutSettings.sizeId).toBe('card995x52_5')
+  })
+
+  it('uses ten slots for A4 landscape and safely compacts overflow positions', () => {
+    const store = useEditorStore()
+    store.updateLayoutSettings({ sizeId: 'card995x52_5' })
+    store.slots[11]!.image = fakeImage('last')
+
+    store.updateLayoutSettings({ sizeId: 'a4Landscape5x2' })
+
+    expect(store.slots).toHaveLength(10)
+    expect(store.layoutSettings.sizeId).toBe('a4Landscape5x2')
+    expect(store.slots[0]!.image?.id).toBe('last')
+    expect(store.remainingCapacity).toBe(9)
   })
 })

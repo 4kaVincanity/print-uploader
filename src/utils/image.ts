@@ -14,7 +14,7 @@ export function validateImageFile(file: File): string | null {
   return null
 }
 
-export function decodeImageFile(file: File): Promise<Omit<ImageEntry, 'id' | 'crop'>> {
+export function decodeImageFile(file: File): Promise<Omit<ImageEntry, 'id' | 'crop' | 'dateStamp'>> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file)
     const image = new Image()

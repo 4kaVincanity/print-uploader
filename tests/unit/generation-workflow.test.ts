@@ -19,6 +19,7 @@ function image(): ImageEntry {
     height: 1500,
     decoded: document.createElement('img'),
     crop: { zoom: 1, offsetX: 0, offsetY: 0 },
+    dateStamp: null,
   }
 }
 
@@ -59,9 +60,10 @@ describe('generation workflow', () => {
 
     await store.generatePreview()
     expect(mocks.renderA4Png).toHaveBeenCalledWith(store.slots, {
+      sizeId: 'a4',
       marginMm: 0,
       gapMm: 0,
-    })
+    }, 'slash')
 
     store.setPageMargin(12)
     expect(store.canDownload).toBe(false)

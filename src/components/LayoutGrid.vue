@@ -6,7 +6,8 @@ import { ArrowLeft, ArrowRight, RefreshLeft } from '@element-plus/icons-vue'
 import { useEditorStore } from '../store/editor'
 import { getSlotAspectRatio } from '../utils/layout'
 import { PRINT_SIZES } from '../config'
-import type { CropTransform } from '../store/editor.types'
+import type { CropTransform, DateStampFormat, DateStampPosition } from '../store/editor.types'
+import { DEFAULT_DATE_STAMP_POSITION, isDateStampEnabled } from '../utils/dateStamp'
 import ImageSlot from './ImageSlot.vue'
 
 interface DragEventLike {
@@ -29,6 +30,49 @@ const zoom = computed({
     store.updateCrop(selectedImage.value.id, { ...selectedImage.value.crop, zoom: value })
   },
 })
+const dateEnabled = computed({
+  get: () => isDateStampEnabled(selectedImage.value?.dateStamp ?? null),
+  set: (value: boolean) => {
+    if (!selectedImage.value) return
+    store.setDateEnabled(selectedImage.value.id, value)
+  },
+})
+const allDatesEnabled = computed({
+  get: () => store.allDatesEnabled,
+  set: (value: boolean) => store.setAllDatesEnabled(value),
+})
+const allDateX = computed({
+  get: () => Math.round(store.allDatePosition.x * 100),
+  set: (value: number | undefined) => updateAllDateAxis('x', value),
+})
+const allDateY = computed({
+  get: () => Math.round(store.allDatePosition.y * 100),
+  set: (value: number | undefined) => updateAllDateAxis('y', value),
+})
+const dateFormat = computed({
+  get: () => store.dateFormat,
+  set: (value: DateStampFormat) => store.setDateFormat(value),
+})
+const datePickerFormat = computed(() => ({
+  slash: 'YYYY/MM/DD',
+  hyphen: 'YYYY-MM-DD',
+  chinese: 'YYYY年MM月DD日',
+})[dateFormat.value])
+const dateValue = computed({
+  get: () => selectedImage.value?.dateStamp?.value ?? '',
+  set: (value: string) => {
+    if (!selectedImage.value || !value) return
+    store.updateImageDate(selectedImage.value.id, { value })
+  },
+})
+const dateX = computed({
+  get: () => Math.round((selectedImage.value?.dateStamp?.position.x ?? 0) * 100),
+  set: (value: number | undefined) => updateSelectedDateAxis('x', value),
+})
+const dateY = computed({
+  get: () => Math.round((selectedImage.value?.dateStamp?.position.y ?? 0) * 100),
+  set: (value: number | undefined) => updateSelectedDateAxis('y', value),
+})
 const selectedIndex = computed(() =>
   slots.value.findIndex((slot) => slot.image?.id === selectedImageId.value),
 )
@@ -36,6 +80,32 @@ const announce = ref('')
 
 function updateCrop(imageId: string, crop: CropTransform): void {
   store.updateCrop(imageId, crop)
+}
+
+function toggleDate(imageId: string): void {
+  store.selectImage(imageId)
+  const image = store.images.find((entry) => entry.id === imageId)
+  if (image) store.setDateEnabled(imageId, !isDateStampEnabled(image.dateStamp))
+}
+
+function updateDatePosition(imageId: string, position: DateStampPosition): void {
+  store.updateImageDate(imageId, { position })
+}
+
+function updateSelectedDateAxis(axis: 'x' | 'y', value: number | undefined): void {
+  const image = selectedImage.value
+  if (!image?.dateStamp || value === undefined) return
+  store.updateImageDate(image.id, {
+    position: {
+      ...image.dateStamp.position,
+      [axis]: value / 100,
+    },
+  })
+}
+
+function updateAllDateAxis(axis: 'x' | 'y', value: number | undefined): void {
+  if (value === undefined) return
+  store.setAllDatePosition({ ...store.allDatePosition, [axis]: value / 100 })
 }
 
 async function onDropFiles(index: number, files: File[]): Promise<void> {
@@ -58,6 +128,12 @@ function resetCrop(): void {
   store.updateCrop(selectedImage.value.id, { zoom: 1, offsetX: 0, offsetY: 0 })
 }
 
+function resetDatePosition(): void {
+  const image = selectedImage.value
+  if (!image?.dateStamp) return
+  store.updateImageDate(image.id, { position: { ...DEFAULT_DATE_STAMP_POSITION } })
+}
+
 function onDragEnd(event: DragEventLike): void {
   store.finishDrag(event.oldIndex, event.newIndex)
   if (event.newIndex !== undefined) announce.value = `图片已移动到第 ${event.newIndex + 1} 格`
@@ -71,6 +147,32 @@ function onDragEnd(event: DragEventLike): void {
         <h2 id="layout-title">排版顺序</h2>
         <p>{{ store.imageCount }}/{{ PRINT_SIZES[store.sizeId].columns * PRINT_SIZES[store.sizeId].rows }} 张，拖动手柄调整顺序</p>
       </div>
+    </div>
+
+    <div class="global-date-settings" aria-label="统一日期设置">
+      <label class="date-toggle">
+        <span>全部图片日期</span>
+        <el-switch v-model="allDatesEnabled" aria-label="统一显示图片日期" />
+      </label>
+      <label class="date-position-control">
+        <span>统一横向位置</span>
+        <el-input-number v-model="allDateX" :min="0" :max="100" :step="1" controls-position="right" aria-label="统一日期横向位置" />
+        <small>%</small>
+      </label>
+      <label class="date-position-control">
+        <span>统一纵向位置</span>
+        <el-input-number v-model="allDateY" :min="0" :max="100" :step="1" controls-position="right" aria-label="统一日期纵向位置" />
+        <small>%</small>
+      </label>
+      <label class="date-format-control">
+        <span>日期格式</span>
+        <el-select v-model="dateFormat" aria-label="日期格式">
+          <el-option label="2026/09/01" value="slash" />
+          <el-option label="2026-09-01" value="hyphen" />
+          <el-option label="2026年09月01日" value="chinese" />
+        </el-select>
+      </label>
+      <p>统一开关作用于当前及后续图片；关闭后保留各张图片的日期，仍可逐张调整。</p>
     </div>
 
     <VueDraggable
@@ -90,11 +192,14 @@ function onDragEnd(event: DragEventLike): void {
         :item="slot"
         :index="index"
         :selected="slot.image?.id === selectedImageId"
+        :date-format="dateFormat"
         @add="emit('add', $event)"
         @duplicate="emit('duplicate', $event)"
         @remove="store.removeImage"
         @select="store.selectImage"
         @update-crop="updateCrop"
+        @toggle-date="toggleDate"
+        @update-date-position="updateDatePosition"
         @drop-files="onDropFiles"
       />
     </VueDraggable>
@@ -140,6 +245,37 @@ function onDragEnd(event: DragEventLike): void {
           />
         </el-tooltip>
       </div>
+      <div class="date-settings">
+        <div class="date-toggle">
+          <span>图片日期</span>
+          <el-switch v-model="dateEnabled" aria-label="显示图片日期" />
+        </div>
+        <template v-if="dateEnabled">
+          <label class="date-value-control">
+            <span>日期</span>
+            <el-date-picker
+              v-model="dateValue"
+              type="date"
+              :format="datePickerFormat"
+              value-format="YYYY/MM/DD"
+              :clearable="false"
+              aria-label="图片日期"
+            />
+          </label>
+          <label class="date-position-control">
+            <span>横向位置</span>
+            <el-input-number v-model="dateX" :min="0" :max="100" :step="1" controls-position="right" aria-label="日期横向位置" />
+            <small>%</small>
+          </label>
+          <label class="date-position-control">
+            <span>纵向位置</span>
+            <el-input-number v-model="dateY" :min="0" :max="100" :step="1" controls-position="right" aria-label="日期纵向位置" />
+            <small>%</small>
+          </label>
+          <el-button :icon="RefreshLeft" @click="resetDatePosition">重置日期位置</el-button>
+          <p>也可以直接拖动图片上的日期</p>
+        </template>
+      </div>
     </div>
 
     <p class="sr-only" aria-live="polite">{{ announce }}</p>
@@ -176,6 +312,25 @@ function onDragEnd(event: DragEventLike): void {
   gap: var(--editor-gap);
 }
 
+.global-date-settings {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  margin-bottom: 14px;
+  padding: 12px;
+  background: var(--surface-subtle);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.global-date-settings p {
+  width: 100%;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
 .drag-ghost {
   opacity: 0.35;
 }
@@ -192,6 +347,49 @@ function onDragEnd(event: DragEventLike): void {
   background: var(--surface-subtle);
   border: 1px solid var(--line);
   border-radius: 6px;
+}
+
+.date-settings {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.date-toggle,
+.date-value-control,
+.date-position-control,
+.date-format-control {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.date-value-control :deep(.el-date-editor) {
+  width: 152px;
+}
+
+.date-position-control :deep(.el-input-number) {
+  width: 96px;
+}
+
+.date-position-control small {
+  font-size: 12px;
+}
+
+.date-format-control :deep(.el-select) {
+  width: 156px;
+}
+
+.date-settings p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
 }
 
 .adjustment-name {
@@ -240,6 +438,14 @@ function onDragEnd(event: DragEventLike): void {
   .zoom-control {
     grid-column: 1 / -1;
     grid-row: 2;
+  }
+
+  .date-settings {
+    align-items: stretch;
+  }
+
+  .date-settings p {
+    width: 100%;
   }
 }
 </style>

@@ -16,6 +16,7 @@ function fakeImage(id: string): ImageEntry {
     height: 1500,
     decoded: document.createElement('img'),
     crop: { zoom: 1, offsetX: 0, offsetY: 0 },
+    dateStamp: null,
   }
 }
 
@@ -95,5 +96,49 @@ describe('LayoutGrid', () => {
 
     await wrapper.get('[aria-label="复制第 1 张图片"]').trigger('click')
     expect(wrapper.emitted('duplicate')).toEqual([[0]])
+  })
+
+  it('adds and configures a date for only the selected image', async () => {
+    const store = useEditorStore()
+    store.slots[0]!.image = fakeImage('first')
+    store.slots[1]!.image = fakeImage('second')
+    store.selectImage('first')
+    const wrapper = mount(LayoutGrid, {
+      global: {
+        plugins: [ElementPlus],
+        stubs: {
+          CropCanvas: true,
+          DateStamp: true,
+          VueDraggable: { template: '<div><slot /></div>' },
+        },
+      },
+    })
+
+    await wrapper.get('[aria-label="添加第 1 张图片的日期"]').trigger('click')
+    expect(store.slots[0]!.image?.dateStamp).not.toBeNull()
+    expect(store.slots[1]!.image?.dateStamp).toBeNull()
+    expect(wrapper.get('[aria-label="显示图片日期"]').attributes('aria-checked')).toBe('true')
+  })
+
+  it('provides a unified date switch and position controls', async () => {
+    const store = useEditorStore()
+    store.slots[0]!.image = fakeImage('first')
+    store.slots[1]!.image = fakeImage('second')
+    const wrapper = mount(LayoutGrid, {
+      global: {
+        plugins: [ElementPlus],
+        stubs: {
+          CropCanvas: true,
+          DateStamp: true,
+          VueDraggable: { template: '<div><slot /></div>' },
+        },
+      },
+    })
+
+    await wrapper.get('[aria-label="统一显示图片日期"]').trigger('click')
+    expect(store.images.every((image) => image.dateStamp)).toBe(true)
+    await wrapper.get('[aria-label="统一日期横向位置"]').setValue('30')
+    await wrapper.get('[aria-label="统一日期横向位置"]').trigger('change')
+    expect(store.images.map((image) => image.dateStamp?.position.x)).toEqual([0.3, 0.3])
   })
 })

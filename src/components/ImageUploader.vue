@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus, Upload } from '@element-plus/icons-vue'
 import { useEditorStore } from '../store/editor'
@@ -16,6 +16,7 @@ const props = withDefaults(
 )
 
 const store = useEditorStore()
+const gridCapacity = computed(() => store.imageCount + store.remainingCapacity)
 const input = ref<HTMLInputElement | null>(null)
 const isDragging = ref(false)
 
@@ -31,7 +32,7 @@ async function processFiles(files: File[]): Promise<void> {
     ElMessage.success(`已添加 ${report.added} 张图片`)
   }
   if (report.skippedForCapacity > 0) {
-    ElMessage.warning(`版面最多容纳 9 张图片，已跳过 ${report.skippedForCapacity} 张`)
+    ElMessage.warning(`当前版面最多容纳 ${gridCapacity.value} 张图片，已跳过 ${report.skippedForCapacity} 张`)
   }
   if (report.rejected.length > 0) {
     ElMessage.error(report.rejected.join('；'))

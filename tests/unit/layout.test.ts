@@ -32,6 +32,15 @@ describe('A4 layout', () => {
     expect(layout[11]!.y + layout[11]!.height).toBe(2480)
   })
 
+  it('lays out A4 landscape as five columns and two rows', () => {
+    const layout = createA4Layout({ sizeId: 'a4Landscape5x2', marginMm: 0, gapMm: 0 })
+    expect(layout).toHaveLength(10)
+    expect(layout[0]).toEqual({ x: 0, y: 0, width: 701, height: 1240 })
+    expect(layout[4]!.x + layout[4]!.width).toBe(3508)
+    expect(layout[9]!.x + layout[9]!.width).toBe(3508)
+    expect(layout[9]!.y + layout[9]!.height).toBe(2480)
+  })
+
   it('applies custom margin and gap while assigning rounding remainder to final tracks', () => {
     const layout = createA4Layout({ sizeId: 'a4', marginMm: 10, gapMm: 5 })
     expect(layout[0]).toEqual({ x: 118, y: 118, width: 708, height: 1051 })

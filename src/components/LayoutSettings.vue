@@ -32,7 +32,13 @@ const sizeId = computed({
       <label class="size-control">
         <span>纸张尺寸</span>
         <el-select v-model="sizeId" aria-label="纸张尺寸">
-          <el-option v-for="(size, id) in PRINT_SIZES" :key="id" :label="size.label" :value="id" />
+          <el-option
+            v-for="(size, id) in PRINT_SIZES"
+            :key="id"
+            :label="size.label"
+            :value="id"
+            :disabled="store.imageCount > size.columns * size.rows"
+          />
         </el-select>
       </label>
       <label>
@@ -69,9 +75,10 @@ const sizeId = computed({
 .layout-settings {
   min-width: 0;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  flex-direction: column;
   justify-content: space-between;
-  gap: 20px;
+  gap: 14px;
   margin-bottom: 20px;
   padding-bottom: 18px;
   border-bottom: 1px solid var(--line);
@@ -96,14 +103,16 @@ const sizeId = computed({
 }
 
 .settings-controls {
-  display: flex;
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(230px, 1.3fr) repeat(2, minmax(180px, 1fr));
   align-items: center;
-  gap: 18px;
+  gap: 12px;
 }
 
 .settings-controls label {
   display: grid;
-  grid-template-columns: auto 112px 24px;
+  grid-template-columns: auto minmax(90px, 1fr) 24px;
   align-items: center;
   gap: 7px;
   color: var(--text-muted);
@@ -111,7 +120,7 @@ const sizeId = computed({
 }
 
 .settings-controls .size-control {
-  grid-template-columns: auto 190px;
+  grid-template-columns: auto minmax(150px, 1fr);
 }
 
 .settings-controls small {
@@ -137,6 +146,7 @@ const sizeId = computed({
   }
 
   .settings-controls .size-control {
+    grid-column: 1 / -1;
     grid-template-columns: 1fr;
   }
 

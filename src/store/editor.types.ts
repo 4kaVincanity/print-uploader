@@ -4,6 +4,19 @@ export interface CropTransform {
   offsetY: number
 }
 
+export interface DateStampPosition {
+  x: number
+  y: number
+}
+
+export interface ImageDateStamp {
+  value: string
+  position: DateStampPosition
+  enabled?: boolean
+}
+
+export type DateStampFormat = 'slash' | 'hyphen' | 'chinese'
+
 export interface ImageEntry {
   id: string
   file: File
@@ -13,6 +26,7 @@ export interface ImageEntry {
   height: number
   decoded: HTMLImageElement
   crop: CropTransform
+  dateStamp: ImageDateStamp | null
 }
 
 export interface LayoutSlot {

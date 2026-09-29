@@ -3,6 +3,7 @@
 @font-face {
   font-family: 'Libian';
   src: url('../assets/fonts/Libian.ttc') format('truetype');
+  font-weight: 400;
   font-display: block;
 }
 

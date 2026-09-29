@@ -13,6 +13,9 @@ describe('LayoutSettings', () => {
     const wrapper = mount(LayoutSettings, {
       global: { plugins: [ElementPlus] },
     })
+    expect(
+      wrapper.findAllComponents({ name: 'ElOption' }).map((option) => option.props('label')),
+    ).toContain('A4 横版（5×2）')
     const inputs = wrapper.findAll('input')
     expect(inputs).toHaveLength(3)
     expect(inputs[1]!.element.value).toBe('0')

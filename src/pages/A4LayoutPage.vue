@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref } from 'vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { ElMessage } from 'element-plus'
 import { Download, Picture, Printer } from '@element-plus/icons-vue'
 import { useEditorStore } from '../store/editor'
+import { getPrintSize } from '../utils/layout'
 import ImageUploader from '../components/ImageUploader.vue'
 import LayoutGrid from '../components/LayoutGrid.vue'
 import A4Preview from '../components/A4Preview.vue'
@@ -14,7 +15,17 @@ const store = useEditorStore()
 const { generatedResult, generationStatus, generationError, canDownload } = storeToRefs(store)
 const previewDialogVisible = ref(false)
 const hiddenInput = ref<HTMLInputElement | null>(null)
+const printImage = ref<HTMLImageElement | null>(null)
 const pendingAddSlotIndex = ref<number | null>(null)
+const selectedPrintSize = computed(() => getPrintSize(store.layoutSettings))
+const gridCapacity = computed(
+  () => selectedPrintSize.value.columns * selectedPrintSize.value.rows,
+)
+const printImageStyle = computed(() => ({
+  width: `${selectedPrintSize.value.widthMm}mm`,
+  height: `${selectedPrintSize.value.heightMm}mm`,
+  page: `${selectedPrintSize.value.orientation}-page`,
+}))
 
 function triggerAdd(slotIndex?: number): void {
   pendingAddSlotIndex.value = slotIndex ?? null
@@ -33,7 +44,7 @@ async function addFromHiddenInput(event: Event): Promise<void> {
   if (files.length > 0) {
     const report = await store.addFiles(files, targetSlotIndex ?? undefined)
     if (report.added) ElMessage.success(`已添加 ${report.added} 张图片`)
-    if (report.skippedForCapacity) ElMessage.warning('版面最多容纳 9 张图片')
+    if (report.skippedForCapacity) ElMessage.warning(`当前版面最多容纳 ${gridCapacity.value} 张图片`)
     if (report.rejected.length) ElMessage.error(report.rejected.join('；'))
   }
   input.value = ''
@@ -56,6 +67,22 @@ function download(): void {
   previewDialogVisible.value = false
 }
 
+async function printGenerated(): Promise<void> {
+  if (!generatedResult.value || !canDownload.value) {
+    ElMessage.warning('请先生成最新预览')
+    return
+  }
+
+  try {
+    if (printImage.value && !printImage.value.complete) {
+      await printImage.value.decode()
+    }
+    window.print()
+  } catch {
+    ElMessage.error('预览图片尚未准备好，请稍后重试')
+  }
+}
+
 onBeforeUnmount(store.cleanup)
 </script>
 
@@ -66,7 +93,7 @@ onBeforeUnmount(store.cleanup)
         <div class="brand-icon"><el-icon :size="22"><Printer /></el-icon></div>
         <div>
           <h1>A4 图片排版</h1>
-          <p>3 × 3 网格 · 300 DPI PNG</p>
+          <p>{{ selectedPrintSize.columns }} × {{ selectedPrintSize.rows }} 网格 · 300 DPI PNG</p>
         </div>
       </div>
       <div class="header-actions">
@@ -111,7 +138,7 @@ onBeforeUnmount(store.cleanup)
         <div class="preview-heading-row">
           <div>
             <h2 id="preview-heading">页面预览</h2>
-            <p>A4 竖版 · {{ store.pageMarginMm }} mm 边距 · {{ store.imageGapMm }} mm 间距</p>
+            <p>{{ selectedPrintSize.label }} · {{ store.pageMarginMm }} mm 边距 · {{ store.imageGapMm }} mm 间距</p>
           </div>
           <el-button
             class="icon-button"
@@ -132,7 +159,7 @@ onBeforeUnmount(store.cleanup)
           :closable="false"
           show-icon
         />
-        <p class="print-note">输出尺寸 2480 × 3508 px。打印时选择 A4，并使用 100% 或适合页面。</p>
+        <p class="print-note">输出尺寸 {{ selectedPrintSize.widthPx }} × {{ selectedPrintSize.heightPx }} px。打印时选择 A4，并使用 100% 或适合页面。</p>
       </aside>
     </main>
 
@@ -152,11 +179,26 @@ onBeforeUnmount(store.cleanup)
       </div>
       <template #footer>
         <el-button @click="previewDialogVisible = false">返回调整</el-button>
+        <el-button :icon="Printer" :disabled="!canDownload" @click="printGenerated">
+          打印
+        </el-button>
         <el-button type="primary" :icon="Download" :disabled="!canDownload" @click="download">
           下载 PNG
         </el-button>
       </template>
     </el-dialog>
+
+    <Teleport to="body">
+      <img
+        v-if="generatedResult"
+        ref="printImage"
+        class="print-only-image"
+        :src="generatedResult.url"
+        :style="printImageStyle"
+        alt=""
+        aria-hidden="true"
+      />
+    </Teleport>
   </div>
 </template>
 
@@ -299,6 +341,35 @@ onBeforeUnmount(store.cleanup)
   gap: 18px;
   color: var(--text-muted);
   font-size: 12px;
+}
+
+.print-only-image {
+  display: none;
+}
+
+@page portrait-page {
+  size: A4 portrait;
+  margin: 0;
+}
+
+@page landscape-page {
+  size: A4 landscape;
+  margin: 0;
+}
+
+@media print {
+  :global(body) {
+    margin: 0;
+  }
+
+  :global(body > *:not(.print-only-image)) {
+    display: none !important;
+  }
+
+  .print-only-image {
+    display: block;
+    object-fit: contain;
+  }
 }
 
 @media (max-width: 980px) {

@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import { Delete, DocumentCopy, Rank } from '@element-plus/icons-vue'
-import type { CropTransform, LayoutSlot } from '../store/editor.types'
+import { Calendar, Delete, DocumentCopy, Rank } from '@element-plus/icons-vue'
+import type { CropTransform, DateStampFormat, DateStampPosition, LayoutSlot } from '../store/editor.types'
+import { isDateStampEnabled } from '../utils/dateStamp'
 import CropCanvas from './CropCanvas.vue'
+import DateStamp from './DateStamp.vue'
 
 const props = defineProps<{
   item: LayoutSlot
   index: number
   selected: boolean
+  dateFormat: DateStampFormat
 }>()
 
 const emit = defineEmits<{
@@ -14,6 +17,8 @@ const emit = defineEmits<{
   duplicate: [index: number]
   select: [imageId: string]
   updateCrop: [imageId: string, crop: CropTransform]
+  toggleDate: [imageId: string]
+  updateDatePosition: [imageId: string, position: DateStampPosition]
   add: [index: number]
   dropFiles: [index: number, files: File[]]
 }>()
@@ -42,8 +47,28 @@ function onDrop(event: DragEvent): void {
         @select="emit('select', item.image!.id)"
         @update-crop="emit('updateCrop', item.image!.id, $event)"
       />
+      <DateStamp
+        v-if="isDateStampEnabled(item.image.dateStamp)"
+        :date-stamp="item.image.dateStamp!"
+        :format="dateFormat"
+        interactive
+        :label="`第 ${index + 1} 张图片日期`"
+        @select="emit('select', item.image!.id)"
+        @update-position="emit('updateDatePosition', item.image!.id, $event)"
+      />
       <div class="slot-index">{{ index + 1 }}</div>
       <div class="slot-actions">
+        <el-tooltip :content="isDateStampEnabled(item.image.dateStamp) ? '移除日期' : '添加日期'" placement="top">
+          <el-button
+            class="icon-button"
+            circle
+            size="small"
+            :type="isDateStampEnabled(item.image.dateStamp) ? 'primary' : ''"
+            :icon="Calendar"
+            :aria-label="`${isDateStampEnabled(item.image.dateStamp) ? '移除' : '添加'}第 ${index + 1} 张图片的日期`"
+            @click.stop="emit('toggleDate', item.image!.id)"
+          />
+        </el-tooltip>
         <el-tooltip content="拖动调整顺序" placement="top">
           <el-button
             class="drag-handle icon-button"
@@ -103,6 +128,7 @@ function onDrop(event: DragEvent): void {
   border: 2px solid transparent;
   border-radius: 5px;
   transition: border-color 140ms ease, box-shadow 140ms ease;
+  container-type: inline-size;
 }
 
 .grid-slot--selected {
@@ -129,6 +155,7 @@ function onDrop(event: DragEvent): void {
   border-radius: 4px;
   font-size: 12px;
   pointer-events: none;
+  z-index: 3;
 }
 
 .slot-actions {
@@ -137,6 +164,7 @@ function onDrop(event: DragEvent): void {
   bottom: 6px;
   display: flex;
   gap: 5px;
+  z-index: 3;
 }
 
 .drag-handle {
@@ -182,6 +210,14 @@ function onDrop(event: DragEvent): void {
   .slot-index {
     top: 4px;
     left: 4px;
+  }
+}
+
+@container (max-width: 140px) {
+  .slot-actions {
+    width: 52px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
   }
 }
 </style>
